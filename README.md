@@ -1,6 +1,6 @@
 # Korean Learners Dictionary Database From JSON
 
-The [korean learners dictionary](https://krdict.korean.go.kr/openApi/openApiInfo) is shared as a json or xml download und CC-BY-SA.
+The [korean learners dictionary](https://krdict.korean.go.kr/openApi/openApiInfo) is shared as a json or xml download under CC-BY-SA.
 
 These are my scripts to turn the json export into a sqlite database.
 
