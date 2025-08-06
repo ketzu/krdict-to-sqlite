@@ -1,0 +1,5 @@
+simplified/
+data/
+*.pyc
+*.json
+*.db
