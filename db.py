@@ -21,16 +21,15 @@ def init_db(conn):
     DROP TABLE IF EXISTS equivalents;
     DROP TABLE IF EXISTS phrase_proverbs;
     DROP TABLE IF EXISTS multimedia;
+    drop table if exists variants;
                          
     CREATE TABLE IF NOT EXISTS lexical_entries (
-        id INTEGER NOT NULL,
+        id INTEGER PRIMARY KEY NOT NULL,
         part_of_speech TEXT NOT NULL,
         written_form TEXT NOT NULL,
-        variants TEXT,
         homonym_number INTEGER NOT NULL,
         lexical_unit TEXT NOT NULL,
-        vocabulary_level TEXT,
-        PRIMARY KEY (id, homonym_number)
+        vocabulary_level TEXT
     );
 
     create table if not exists phrase_proverbs (
@@ -110,6 +109,12 @@ def init_db(conn):
         label TEXT NOT NULL,
         url TEXT NOT NULL
     );
+
+    create table if not exists variants (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        lexical_entry_id INTEGER NOT NULL,
+        variant TEXT NOT NULL
+    );
     """)
 
     conn.commit()
@@ -127,8 +132,8 @@ def insert_equivalent(
 def insert_lexical_entry(
         cursor,
     part_of_speech: str, written_form: str, homonym_number: int,
-    lexical_unit: str, variants: Optional[str] = None,
-    vocabulary_level: Optional[str] = None, semantic_category: Optional[str] = None,
+    lexical_unit: str,
+    vocabulary_level: Optional[str] = None, 
     id: Optional[int] = None
 ):
     #print(f"Inserting {(id, part_of_speech, written_form, homonym_number, lexical_unit, vocabulary_level)=}")
@@ -140,9 +145,9 @@ def insert_lexical_entry(
     else:
         cursor.execute("""
             INSERT INTO lexical_entries (id, part_of_speech, written_form,
-                                        homonym_number, lexical_unit, vocabulary_level, variants)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        """, (id, part_of_speech, written_form, homonym_number, lexical_unit, vocabulary_level, variants))
+                                        homonym_number, lexical_unit, vocabulary_level)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (id, part_of_speech, written_form, homonym_number, lexical_unit, vocabulary_level))
 
 def insert_word_form(
         cursor,
@@ -249,6 +254,12 @@ def insert_multimedia(cursor, sense_id: int, type: str, label: str, url: str, id
         INSERT INTO multimedia (id, sense_id, type, label, url)
         VALUES (?, ?, ?, ?, ?)
     """, (id, sense_id, type, label, url))
+
+def insert_variant(cursor, lexical_entry_id: int, variant: str):
+    cursor.execute("""
+        INSERT INTO variants (lexical_entry_id, variant)
+        VALUES (?, ?)
+    """, (lexical_entry_id, variant))
 
 conn = sqlite3.connect("lexicon.db")
 init_db(conn)
@@ -367,16 +378,19 @@ def add_to_db(data):
         cursor = conn.cursor()
         id = entry.get("id")
         lemma = entry["Lemma"]
+        written_form=lemma.get("writtenForm", "")
         insert_lexical_entry(
             cursor,
             part_of_speech=entry.get("partOfSpeech", ""),
-            written_form=lemma.get("writtenForm", ""),
+            written_form=written_form,
             homonym_number=entry.get("homonym_number", 0),
             lexical_unit=entry.get("lexicalUnit", ""),
-            variants=lemma.get("variant", None),
             vocabulary_level=entry.get("vocabularyLevel", ""),
             id=id
         )
+        variants = [written_form] + [_ for _ in lemma.get("variant", "").split(",") if _ != '']
+        for variant in variants:
+            insert_variant(cursor, id, variant)
 
         if "semanticCategory" in entry:
             add_semantic_categories(cursor, entry.get("semanticCategory"), id)
